@@ -1,9 +1,19 @@
 from django.contrib.auth.password_validation import validate_password
 
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import User, Profile
 
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Add custom claims
+        token['email'] = user.email
+        token['username'] = user.username
+
+        return token
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
@@ -45,3 +55,12 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = '__all__'
+
+class PasswordChangeSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+
+class PasswordResetSerializer(serializers.Serializer):
+    uuidb64 = serializers.CharField(required=True)
+    otp = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)

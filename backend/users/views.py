@@ -1,16 +1,27 @@
 from django.shortcuts import render
+from django.conf import settings
+from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives
+from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password
 
 from users import models as user_models
 from users import serializers as user_serializers
 
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 import random
+from urllib.parse import urlencode
 
 # Create your views here.
 
+
+class MyTokenObtainPairView(TokenObtainPairView):
+    serializer_class = user_serializers.MyTokenObtainPairSerializer
 
 class RegisterAPIView(generics.CreateAPIView):
     queryset = user_models.User.objects.all()
@@ -18,102 +29,109 @@ class RegisterAPIView(generics.CreateAPIView):
     serializer_class = user_serializers.RegisterSerializer
 
 
-# def generate_random_otp(length=7):
-#     otp = ''.join([str(random.randint(0, 9)) for _ in range(length)])
-#     return otp
+def generate_random_otp(length=7):
+    return ''.join([str(random.randint(0, 9)) for _ in range(length)])
 
 
-# class PasswordResetEmailVerifyAPIView(generics.RetrieveAPIView):
-#     permission_classes = [AllowAny]
-#     serializer_class = user_serializers.UserSerializer
+class PasswordResetEmailVerifyAPIView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = user_serializers.UserSerializer
 
-#     def get_object(self):
-#         email = self.kwargs['email']
+    def get_object(self):
+        email = self.kwargs['email']
 
-#         user = user_models.User.objects.filter(email=email).first()
+        user = user_models.User.objects.filter(email=email).first()
 
-#         if user:
+        if user:
 
-#             uuidb64 = user.pk
-#             refresh = RefreshToken.for_user(user)
-#             refresh_token = str(refresh.access_token)
+            uuidb64 = user.pk
+            refresh = RefreshToken.for_user(user)
+            refresh_token = str(refresh.access_token)
 
-#             user.refresh_token = refresh_token
-#             user.otp = generate_random_otp()
-#             user.save()
+            user.refresh_token = refresh_token
+            user.otp = generate_random_otp()
+            user.save()
 
-#             link = f'http://localhost:5173/create-new-password/?otp={
-#                 user.otp}&uuidb64={uuidb64}&=refresh_token{refresh_token}'
+            base_url = settings.FRONTEND_SITE_URL + "/create-new-password/"
 
-#             context = {
-#                 "link": link,
-#                 "username": user.username,
-#             }
+            query_params = urlencode({
+                "otp": user.otp,
+                "uuidb64": uuidb64,
+                "refresh_token": refresh_token,
+            })
 
-#             subject = "Password Reset Email"
-#             text_body = render_to_string('email/password_reset.txt', context)
-#             html_body = render_to_string('email/password_reset.html', context)
+            link = f'{base_url}?{query_params}'
 
-#             message = EmailMultiAlternatives(
-#                 subject=subject,
-#                 from_email=settings.FROM_EMAIL,
-#                 to=[user.email],
-#                 body=text_body,
-#             )
+            context = {
+                "link": link,
+                "username": user.username,
+            }
 
-#             message.attach_alternative(html_body, "text/html")
-#             message.send()
+            subject = "Password Reset Email"
+            text_body = render_to_string('email/password_reset.txt', context)
+            html_body = render_to_string('email/password_reset.html', context)
 
-#             print("Link ===========", link)
+            message = EmailMultiAlternatives(
+                subject=subject,
+                from_email=settings.FROM_EMAIL,
+                to=[user.email],
+                body=text_body,
+            )
 
-#         return user
+            message.attach_alternative(html_body, "text/html")
+            message.send()
 
+            # print("Link ===========", link)
 
-# class PasswordChangeAPIView(generics.CreateAPIView):
-#     queryset = User.objects.all()
-#     serializer_class = api_serializers.UserSerializer
-#     permission_classes = [AllowAny]
+        return user
 
-#     def create(self, request, *args, **kwargs):
-#         payload = request.data
+User = get_user_model()
 
-#         otp = payload['otp']
-#         uuidb64 = payload['uuidb64']
-#         password = payload['password']
+class PasswordResetAPIView(generics.UpdateAPIView):
+    serializer_class = user_serializers.PasswordResetSerializer
+    permission_classes = []
 
-#         user = User.objects.get(id=uuidb64, otp=otp)
-#         if user:
-#             user.set_password(password)
-#             # user.otp = ""
-#             user.save()
+    def get_object(self):
+        return User.objects.get(
+            id=self.request.data.get('uuidb64'),
+            otp=self.request.data.get('otp')
+        )
 
-#             return Response({"message": "Password changed successfully"}, status=status.HTTP_201_CREATED)
-#         else:
-#             return Response({"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+    def update(self, request, *args, **kwargs):
+        try:
+            user = self.get_object()
+        except User.DoesNotExist:
+            return Response({"message": "Invalid reset token"}, status=status.HTTP_400_BAD_REQUEST)
 
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            user.set_password(serializer.validated_data['new_password'])
+            user.otp = None  # Clear the OTP after use
+            user.save()
+            return Response({"message": "Password reset successfully"}, status=status.HTTP_200_OK)
 
-# class ChangePasswordAPIView(generics.CreateAPIView):
-#     serializer_class = api_serializers.UserSerializer
-#     permission_classes = [AllowAny]
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-#     def create(self, request, *args, **kwargs):
-#         user_id = request.data['user_id']
+class ChangePasswordAPIView(generics.UpdateAPIView):
+    serializer_class = user_serializers.PasswordChangeSerializer
+    permission_classes = [IsAuthenticated]
 
-#         old_password = request.data['old_password']
-#         new_password = request.data['new_password']
+    def get_object(self):
+        return self.request.user
 
-#         user = User.objects.get(id=user_id)
-#         if user is not None:
-#             if check_password(old_password, user.password):
-#                 user.set_password(new_password)
-#                 user.save()
-#                 return Response({"message": "Password Changed Successfully", "icon": "success"}, status=status.HTTP_200_OK)
+    def update(self, request, *args, **kwargs):
+        user = self.get_object()
+        serializer = self.get_serializer(data=request.data)
 
-#             else:
-#                 return Response({"message": "Old Password is Incorrect", "icon": "warning"}, status=status.HTTP_200_OK)
+        if serializer.is_valid():
+            if not user.check_password(serializer.validated_data['old_password']):
+                return Response({"message": "Old password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response({"message": "Password changed successfully"}, status=status.HTTP_200_OK)
 
-#         else:
-#             return Response({"message": "User Not Found", "icon": "error"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ProfileAPIView(generics.RetrieveUpdateAPIView):

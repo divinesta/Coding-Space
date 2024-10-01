@@ -140,6 +140,8 @@ STATIC_ROOT = BASE_DIR / 'templates'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+AUTH_USER_MODEL = 'users.User'
+
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Default primary key field type

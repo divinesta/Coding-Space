@@ -166,8 +166,15 @@
   - Material-UI or Ant Design (for UI components)
   - Socket.IO (for real-time communication)
 
-## 21. UI Component Libraries
-- **Material-UI**: Offers a wide range of pre-built components like forms, cards, and tables.
-- **Ant Design**: Provides a comprehensive set of high-quality components for building rich user interfaces.
-- **Bootstrap**: A popular framework for responsive design with ready-to-use components.
-- **Chakra UI**: A simple, modular, and accessible component library for React.
+
+MVP (Minimum Viable Product)
+- Authentication (Login, Logout, Registration, Forgot Password)
+- User Management (User Roles)
+- Assessment System (Quizzes, Playground, Assignments)
+- Code Execution System (Submissions-judge0, Grading-ChatGPT API)
+- Student Dashboard (Score History, Practice, Submission History, Chat, Question and Answer)
+- Instructor Dashboard (Assessment Management, Student Management, Grading, Analytics)
+- Real-time Features (Chat, Notifications)
+<!-- - File Management -->
+- Frontend Development
+- API Integration

@@ -48,7 +48,6 @@ INSTALLED_APPS = [
 
     #custom apps
     "auths",
-    "assessments",
     "users",
 
     #Third Party Apps

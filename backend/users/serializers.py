@@ -19,40 +19,32 @@ def get_serializer(app_label, serializer_name):
         raise ImportError(
             f"Could not import serializers module from {app_label}")
 
+
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = user_models.User
-        fields = '__all__'
+        fields = ['id', 'email', 'username', 'user_role','institution']
+        read_only_fields = ['id', 'user_role']
 
 
-class ProfileSerializer(serializers.ModelSerializer):
+class AdminSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+
     class Meta:
-        model = user_models.Profile
+        model = user_models.Admin
         fields = '__all__'
-
-
-class StudentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = user_models.Student
-        fields = '__all__'
-
-    def __init__(self, *args, **kwargs):
-        super(StudentSerializer, self).__init__(*args, **kwargs)
-        request = self.context.get("request")
-        if request and request.method == "POST":
-            self.Meta.depth = 0
-        else:
-            self.Meta.depth = 3
-
 
 class AssessmentSerializer(serializers.ModelSerializer):
     due_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
     time_remaining = serializers.SerializerMethodField()
     is_overdue = serializers.SerializerMethodField()
+    ai_feedback = serializers.CharField(read_only=True)
+    instructor_feedback = serializers.CharField(read_only=True)
 
     class Meta:
         model = user_models.Assessment
-        fields = ['course', 'title', 'description', 'question_area', 'due_date', 'time_remaining', 'is_overdue']
+        fields = ['course', 'title', 'description', 'question_area', 'due_date', 'time_remaining', 'is_overdue', 'ai_feedback', 'instructor_feedback']
 
     def get_time_remaining(self, obj):
         return obj.time_remaining()
@@ -70,9 +62,12 @@ class AssessmentSerializer(serializers.ModelSerializer):
 
 
 class QuizSerializer(serializers.ModelSerializer):
+    ai_feedback = serializers.CharField(read_only=True)
+    instructor_feedback = serializers.CharField(read_only=True)
+
     class Meta:
         model = user_models.Quiz
-        fields = ['course', 'title', 'description', 'question_area', 'time_limit']
+        fields = ['course', 'title', 'description', 'question_area', 'time_limit', 'ai_feedback', 'instructor_feedback', 'max_score', 'show_scores']
 
     def __init__(self, *args, **kwargs):
         super(QuizSerializer, self).__init__(*args, **kwargs)
@@ -82,8 +77,16 @@ class QuizSerializer(serializers.ModelSerializer):
         else:
             self.Meta.depth = 3
 
+
+class PlayGroundSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = user_models.PlayGround
+        fields = '__all__'
+
+
 class CourseSerializer(serializers.ModelSerializer):
-    students = StudentSerializer(many=True)
+    students = serializers.StringRelatedField(many=True)
     assessments = AssessmentSerializer(many=True)
     quizzes = QuizSerializer(many=True)
     institution = serializers.StringRelatedField()
@@ -101,15 +104,44 @@ class CourseSerializer(serializers.ModelSerializer):
         else:
             self.Meta.depth = 3
 
+class StudentSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    courses = CourseSerializer(many=True, read_only=True)
+    assessments = AssessmentSerializer(many=True, read_only=True)
+    quizzes = QuizSerializer(many=True, read_only=True)
+    playgrounds = PlayGroundSerializer(many=True, read_only=True)
+    scores = serializers.SerializerMethodField()
+
+    class Meta:
+        model = user_models.Student
+        fields = '__all__'
+
+    def get_scores(self, obj):
+        submissions = user_models.Submission.objects.filter(student=obj)
+        return SubmissionSerializer(submissions, many=True).data
+
+    def __init__(self, *args, **kwargs):
+        super(StudentSerializer, self).__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request and request.method == "POST":
+            self.Meta.depth = 0
+        else:
+            self.Meta.depth = 3
+            
+        
+
+
 
 
 class CourseEnrollmentSerializer(serializers.ModelSerializer):
     assessments = AssessmentSerializer(many=True)
     quizzes = QuizSerializer(many=True)
+    student = serializers.StringRelatedField()
+    teacher = serializers.StringRelatedField()
         
     class Meta:
         model = user_models.CourseEnrollment
-        fields = '__all__'
+        fields = ['course', 'student', 'teacher', 'enrollment_id', 'enrollment_date', 'is_enrolled', 'assessments', 'quizzes']
 
     def __init__(self, *args, **kwargs):
         super(CourseEnrollmentSerializer, self).__init__(*args, **kwargs)
@@ -118,11 +150,10 @@ class CourseEnrollmentSerializer(serializers.ModelSerializer):
             self.Meta.depth = 0
         else:
             self.Meta.depth = 3
-
-class PlayGroundSerializer(serializers.ModelSerializer):
-
+            
+class CourseMaterialSerializer(serializers.ModelSerializer):
     class Meta:
-        model = user_models.PlayGround
+        model = user_models.CourseMaterial
         fields = '__all__'
 
 
@@ -132,7 +163,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class TeacherSerializer(serializers.ModelSerializer):
-    profile = ProfileSerializer(many=False)
+    user = UserSerializer()
     courses = CourseSerializer(many=True)
     enrolled_students = CourseEnrollmentSerializer(many=True)
 
@@ -142,10 +173,25 @@ class TeacherSerializer(serializers.ModelSerializer):
 
 
 class InstitutionSerializer(serializers.ModelSerializer):
-    teachers = UserSerializer(many=True)
-    students = UserSerializer(many=True)
 
     class Meta:
         model = user_models.Institution
         fields = '__all__'
 
+class ManagerSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    institution = InstitutionSerializer()
+
+    class Meta:
+        model = user_models.Manager
+        fields = '__all__'
+
+class FeedbackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = user_models.Feedback
+        fields = '__all__'
+
+class IssueReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = user_models.IssueReport
+        fields = '__all__'

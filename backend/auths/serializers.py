@@ -6,10 +6,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # Import User models dynamically
 User = apps.get_model('users', 'User')
-Teacher = apps.get_model('users', 'Teacher')
-Student = apps.get_model('users', 'Student')
+Manager = apps.get_model('users', 'Manager')
 Institution = apps.get_model('users', 'Institution')
-Profile = apps.get_model('users', 'Profile')
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -20,63 +18,52 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['username'] = user.username
         try:
             token['teacher_id'] = user.teacher.id
+            token['student_id'] = user.student.id
+            token['admin_id'] = user.admin.id
+            token['manager_id'] = user.manager.id
         except:
             # If user is not a teacher, set teacher_id to 0
             token['teacher_id'] = 0
+            token['student_id'] = 0
+            token['admin_id'] = 0
+            token['manager_id'] = 0
 
         return token
 
 class RegisterSerializer(serializers.ModelSerializer):
-    # Define password fields with write-only access and validation
-    password = serializers.CharField(
-        write_only=True, required=True, validators=[validate_password])
-    password2 = serializers.CharField(write_only=True, required=True)
-    institution = serializers.CharField(required=False, allow_null=True)
+    manager_email = serializers.EmailField()
+    manager_password = serializers.CharField(write_only=True)
 
     class Meta:
-        model = User
-        fields = ['username', 'email', 'institution', 'user_type', 'password', 'password2']
+        model = Institution
+        fields = ['name', 'manager_email', 'manager_password']
 
-    def validate(self, attr):
-        # Check if passwords match
-        if attr['password'] != attr['password2']:
-            raise serializers.ValidationError(
-                {"password": "Password fields didn't match"})
-
-        return attr
 
     def create(self, validated_data):
-        # Extract institution name from validated data
-        institution_name = validated_data.pop('institution', None)
+        manager_email = validated_data.pop('manager_email')
+        manager_password = validated_data.pop('manager_password')
 
-        # Get or create institution if provided
-        if institution_name:
-            institution, _ = Institution.objects.get_or_create(name=institution_name)
-        else:
-            institution = None
+        institution = Institution.objects.create(**validated_data)
 
-        # Create user instance
-        user = User.objects.create(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            institution=institution,
-            user_type=validated_data['user_type']
+        manager_user = User.objects.create_user(
+            username=manager_email,
+            email=manager_email,
+            password=manager_password,
+            user_role='manager',
+            institution=institution
         )
+        
+        
 
-        # Set password and save user
-        user.set_password(validated_data['password'])
-        user.save()
+        Manager.objects.create(user=manager_user, institution=institution)
 
-        # Create user profile
-        Profile.objects.create(user=user)
+        return institution
 
-        # Create Teacher or Student instance based on user_type
-        if user.user_type == 'Instructor':
-            Teacher.objects.create(user=user)
-        elif user.user_type == 'Student':
-            Student.objects.create(user=user)
 
-        return user
+class UserLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField()
+
 
 class PasswordChangeSerializer(serializers.Serializer):
     # Fields for changing password

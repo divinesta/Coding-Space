@@ -148,6 +148,8 @@ AUTH_USER_MODEL = 'users.User'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+OPENAI_API_KEY = env('OPENAI_API_KEY')
+
 FRONTEND_SITE_URL = env('FRONTEND_SITE_URL')
 BACKEND_SITE_URL = env('BACKEND_SITE_URL')
 
@@ -162,6 +164,8 @@ ANYMAIL = {
 
 FROM_EMAIL = env('FROM_EMAIL')
 EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
+
+CELERY_BROKER_URL = 'redis://localhost:6379/1'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

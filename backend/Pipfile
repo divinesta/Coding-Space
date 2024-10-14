@@ -36,6 +36,8 @@ asgiref = "*"
 boto3 = "*"
 botocore = "*"
 idna = "*"
+openai = "*"
+redis = "*"
 
 [dev-packages]
 django-debug-toolbar = "*"

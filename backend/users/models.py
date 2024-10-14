@@ -1,37 +1,48 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import FileExtensionValidator
 from django.apps import apps
 from django.utils import timezone
+
+from .validators import validate_image
 
 from shortuuid.django_fields import ShortUUIDField
 # Create your models here.
 
-USER_TYPE = [
-    ("Instructor", "Instructor"),
-    ("Student", "Student")
-]
-
 class Institution(models.Model):
-    name = models.CharField(max_length=255, unique=True, null=True, blank=True)
-    code = models.CharField(max_length=10, unique=True, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    SUBSCRIPTION_STATUS = [
+        ('trial', 'Trial'),
+        ('paid', 'Paid'),
+        ('pending', 'Pending'),
+        ('failed', 'Failed')
+    ]
+    
+    name = models.CharField(max_length=255, unique=True)
+    code = models.CharField(max_length=10, unique=True)
+    logo = models.ImageField(upload_to='institution_logos/', null=True, blank=True, validators=[validate_image])
+
+    date_registered = models.DateTimeField(auto_now_add=True)  # Auto-timestamp when created
+    
+    subscription_status = models.CharField(max_length=20, choices=SUBSCRIPTION_STATUS, default='trial')
+    subscription_end_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
         return self.name
     
-    def teachers(self):
-        return User.objects.filter(institution=self, user_type="Instructor")
-    
-    def students(self):
-        return User.objects.filter(institution=self, user_type="Student")
 
 
 class User(AbstractUser):
+    USER_ROLES = [
+        ('manager', 'Manager'),
+        ('admin', 'Admin'),
+        ('teacher', 'Teacher'),
+        ('student', 'Student'),
+    ]
+    
     username = models.CharField(max_length=100, unique=True)
     email = models.EmailField(unique=True)
-    institution = models.ForeignKey(Institution, on_delete=models.SET_NULL, related_name='users', null=True, blank=True)
-    user_type = models.CharField(max_length=100, choices=USER_TYPE, default="None")
+    user_role = models.CharField(max_length=100, choices=USER_ROLES)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='users')
     otp = models.CharField(max_length=100, null=True, blank=True)
     refresh_token = models.CharField(max_length=100, null=True, blank=True)
 
@@ -40,32 +51,42 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
-
-class Profile(models.Model):
+    
+    def save(self, *args, **kwargs):
+        if not self.username:
+            self.username = self.email.split('@')[0]
+        super().save(*args, **kwargs)
+        
+class Manager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    institution = models.ForeignKey(Institution, on_delete=models.SET_NULL, null=True, blank=True)
-    image = models.FileField(upload_to='user_folder', default='default_user.jpg', null=True, blank=True)
-    full_name = models.CharField(max_length=200)
+    institution = models.OneToOneField(Institution, on_delete=models.CASCADE)
+    email = models.EmailField(unique=True, null=True, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+
+    def __str__(self):
+        return f"Owner: {self.user.username}"
+
+
+class Admin(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='admins')
+    image = models.ImageField(upload_to='admin_folder', default='default_admin_user.jpg', null=True, blank=True)
     date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return str(self.user.username)
-
-    def save(self, *args, **kwargs):
-        if not self.full_name:
-            self.full_name = self.user.username
-        super(Profile, self).save(*args, **kwargs)
+        return f"Admin: {self.user.username}"
 
 
 class Teacher(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='teacher_folder', default='default_teacher_user.jpg', null=True, blank=True)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='teachers')
+    bio = models.TextField(blank=True, null=True)
     date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.user.username
+        return f"Teacher: {self.user.username}"
     
-    def profile(self):
-        return Profile.objects.get(user=self.user)
 
     def courses(self):
         return Course.objects.filter(teacher=self.teacher)
@@ -76,6 +97,8 @@ class Teacher(models.Model):
 
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='students')
+    image = models.ImageField(upload_to='student_folder', default='default_student_user.jpg', null=True, blank=True)
     teacher = models.ManyToManyField(Teacher, related_name='students', blank=True)
     identification_number = models.CharField(max_length=100, unique=True, null=True, blank=True)
     courses = models.ManyToManyField("users.Course", related_name='students', blank=True)
@@ -85,7 +108,7 @@ class Student(models.Model):
     date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.user.username
+        return f"Student: {self.user.username}"
 
     def courses(self):
         return Course.objects.filter(students=self)
@@ -100,15 +123,6 @@ class Student(models.Model):
         return PlayGround.objects.filter(students=self)
 
 
-LANGUAGE_CHOICES = [
-    ('python', 'Python'),
-    ('javascript', 'JavaScript'),
-    ('typescript', 'TypeScript'),
-    ('c', 'C'),
-    ('c++', 'C++'),
-    ('c#', 'C#'),
-]
-
 
 class Course(models.Model):
     institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='courses')
@@ -116,11 +130,11 @@ class Course(models.Model):
     students = models.ManyToManyField(Student, related_name='courses', blank=True)
     title = models.CharField(max_length=300)
     description = models.TextField(null=True, blank=True)
-    image = models.FileField(upload_to='course_folder', default='default_course.jpg', null=True, blank=True)
+    image = models.ImageField(upload_to='course_folder', default='default_course.jpg', null=True, blank=True)
     enrollment_code = models.CharField(max_length=10, null=True, blank=True)
     course_id = ShortUUIDField(
         length=8, max_length=10, alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
-    date = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title
@@ -141,7 +155,7 @@ class CourseEnrollment(models.Model):
     student = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True)
     teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True) 
     enrollment_id = ShortUUIDField(unique=True, length=10, max_length=10, alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
-    enrollment_date = models.DateTimeField(default=timezone.now)
+    enrollment_date = models.DateTimeField(auto_now_add=True)
     is_enrolled = models.BooleanField(default=False)
 
     class Meta:
@@ -155,19 +169,33 @@ class CourseEnrollment(models.Model):
 
     def quizzes(self):
         return Quiz.objects.filter(course=self.course)
+    
+
+class CourseMaterial(models.Model):
+    course = models.ForeignKey(Course, related_name='materials', on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    file = models.FileField(upload_to='course_materials/', validators=[FileExtensionValidator(['pdf'])], null=True, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} for {self.course.title}"
 
 
 class Assessment(models.Model):
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='assessments')
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, null=True, blank=True)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
     title = models.CharField(max_length=200, help_text="at most 200 characters")
     description = models.TextField(null=True, blank=True)
     instructor_solution = models.TextField(null=True, blank=True)
     code_area = models.TextField(null=True, blank=True)
     question_area = models.TextField(null=True, blank=True)
-    assessment_id = ShortUUIDField(unique=True, length=10, max_length=10, alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
+    assessment_id = ShortUUIDField(unique=True, length=20, max_length=20, alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
     use_ai_grading = models.BooleanField(default=False, null=True, blank=True)
     ai_grading_parameters = models.JSONField(null=True, blank=True)
+    ai_feedback = models.TextField(null=True, blank=True)
+    instructor_feedback = models.TextField(null=True, blank=True)
     max_score = models.IntegerField(default=100, null=True, blank=True)
+    
     due_date = models.DateTimeField(help_text="Deadline for assessment submission", null=True, blank=True)
 
     def __str__(self):
@@ -206,17 +234,20 @@ class Assessment(models.Model):
 
 
 class Quiz(models.Model):
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, null=True, blank=True)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='quizzes')
     title = models.CharField(max_length=200, help_text="at most 200 characters")
     description = models.TextField(null=True, blank=True)
     code_area = models.TextField(null=True, blank=True)
     question_area = models.TextField(null=True, blank=True)
-    quiz_id = ShortUUIDField(unique=True, length=10, max_length=10, alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
+    quiz_id = ShortUUIDField(unique=True, length=20, max_length=20, alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
     use_ai_grading = models.BooleanField(default=False)
     ai_grading_parameters = models.JSONField(null=True, blank=True)
     instructor_solution = models.TextField(null=True, blank=True)
     max_score = models.IntegerField(default=100)
     show_scores = models.BooleanField(default=False)
+    ai_feedback = models.TextField(null=True, blank=True)
+    instructor_feedback = models.TextField(null=True, blank=True)
     time_limit = models.IntegerField(help_text="Time limit for the quiz in minutes", null=True, blank=True)
 
     def __str__(self):
@@ -224,8 +255,9 @@ class Quiz(models.Model):
 
 
 class PlayGround(models.Model):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='playgrounds')
     title = models.CharField(max_length=200, help_text="at most 200 characters")
-    playground_id = ShortUUIDField(unique=True, length=10, max_length=10, alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
+    playground_id = ShortUUIDField(unique=True, length=20, max_length=20, alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
     code_area = models.TextField(null=True, blank=True)
 
     def __str__(self):
@@ -244,7 +276,8 @@ class Submission(models.Model):
         ('REVALIDATION_REQUESTED', 'Revalidation Requested'),
     ]
 
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='submissions')
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='submissions', null=True, blank=True)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='submissions', null=True, blank=True)
     assessment = models.ForeignKey(Assessment, on_delete=models.CASCADE, null=True, blank=True)
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, null=True, blank=True)
     submission_type = models.CharField(max_length=10, choices=SUBMISSION_TYPES)
@@ -254,7 +287,37 @@ class Submission(models.Model):
     grading_status = models.CharField(
         max_length=25, choices=GRADING_STATUS, default='PENDING')
     ai_feedback = models.TextField(null=True, blank=True)
+    is_viewed = models.BooleanField(default=False)
     instructor_feedback = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.student.user.username}'s submission for {self.get_submission_type_display()}"
+
+
+
+class IssueReport(models.Model):
+    REPORT_STATUS = [
+        ('open', 'Open'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+    ]
+
+    reporter = models.ForeignKey(User, related_name='issue_reports', on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=REPORT_STATUS, default='open')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Issue: {self.title} by {self.reporter.username}"
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, related_name='notifications', on_delete=models.CASCADE)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification for {self.user.username}"

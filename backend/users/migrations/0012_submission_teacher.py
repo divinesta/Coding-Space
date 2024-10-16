@@ -4,6 +4,15 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def create_default_institution(apps, schema_editor):
+    Institution = apps.get_model('users', 'Institution')
+    if not Institution.objects.exists():
+        Institution.objects.create(
+            name="Default Institution",
+            subscription_status="trial",
+            # Add other required fields here
+        )
+
 class Migration(migrations.Migration):
 
     dependencies = [

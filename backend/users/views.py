@@ -13,41 +13,6 @@ from rest_framework.parsers import JSONParser
 
 
 
-
-#TODO: Implement payment logic: When payment has been successful, change the 
-# institution status to 'paid', and set active to True
-
-class InstitutionListCreateAPIView(generics.ListCreateAPIView):
-    queryset = user_models.Institution.objects.all()
-    serializer_class = user_serializers.InstitutionSerializer
-    #TODO: update permissions
-    permission_classes = [AllowAny]
-
-
-class InstitutionDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = user_serializers.InstitutionSerializer
-    #TODO: update permissions
-    permission_classes = [AllowAny]
-
-    def get_object(self):
-        institution_id = self.kwargs['institution_id']
-        institution = get_object_or_404(user_models.Institution, id=institution_id)
-        return institution
-
-
-
-class StudentProfileAPIView(generics.RetrieveUpdateAPIView):
-    serializer_class = user_serializers.StudentSerializer
-    permission_classes = [AllowAny]
-
-    def get_object(self):
-        user_id = self.kwargs['user_id']
-        student = get_object_or_404(user_models.Student, user__id=user_id)
-        return student
-        # user = user_models.User.objects.get(id=user_id)
-
-        # return user_models.Student.objects.get(user=user)
-
 class TeacherProfileAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = user_serializers.TeacherSerializer
     permission_classes = [AllowAny]
@@ -56,17 +21,6 @@ class TeacherProfileAPIView(generics.RetrieveUpdateAPIView):
         user_id = self.kwargs['user_id']
         teacher = get_object_or_404(user_models.Teacher, user__id=user_id)
         return teacher
-
-#FIXME: fix this view
-class TeacherListAPIView(generics.ListAPIView):
-    serializer_class = user_serializers.InstitutionSerializer
-    permission_classes = [AllowAny]
-
-    def get_queryset(self):
-        institution_id = self.kwargs['institution_id']
-        institution = user_models.Institution.objects.get(id=institution_id)
-
-        return user_models.Teacher.objects.filter(user__institution=institution)
 
 class TeacherCourseListAPIView(generics.ListCreateAPIView):
     serializer_class = user_serializers.CourseSerializer

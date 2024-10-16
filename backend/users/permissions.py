@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from .models import Teacher, Student, Admin, Institution
 
 class IsOwner(permissions.BasePermission):
     """
@@ -6,7 +7,10 @@ class IsOwner(permissions.BasePermission):
     """
 
     def has_object_permission(self, request, view, obj):
-        return obj.owner == request.user
+        # Check if the object is an Institution and if the request user is the owner
+        if isinstance(obj, Institution):
+            return obj.owner == request.user
+        return False
 
 class IsAdmin(permissions.BasePermission):
     """
@@ -14,10 +18,14 @@ class IsAdmin(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        return request.user.user_role == 'admin'
+        # Check if the user has an associated admin profile
+        return hasattr(request.user, 'admin')
 
     def has_object_permission(self, request, view, obj):
-        return request.user in obj.admins.all()
+        # Check if the object is an Institution and if the user is an admin of that institution
+        if isinstance(obj, Institution):
+            return Admin.objects.filter(user=request.user, institution=obj).exists()
+        return False
 
 class IsTeacher(permissions.BasePermission):
     """
@@ -25,7 +33,8 @@ class IsTeacher(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        return request.user.user_role == 'teacher'
+        # Check if the user has an associated teacher profile
+        return hasattr(request.user, 'teacher')
 
 class IsStudent(permissions.BasePermission):
     """
@@ -33,7 +42,8 @@ class IsStudent(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        return request.user.user_role == 'student'
+        # Check if the user has an associated student profile
+        return hasattr(request.user, 'student')
 
 class IsAdminOrOwner(permissions.BasePermission):
     """
@@ -41,15 +51,29 @@ class IsAdminOrOwner(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        return request.user.user_role in ['admin', 'owner']
+        # Check if the user is an admin or a superuser
+        return hasattr(request.user, 'admin') or request.user.is_superuser
+
+# class IsOwnerOrAdmin(permissions.BasePermission):
+#     """
+#     Custom permission to allow Owners or Admins for object-level permissions.
+#     """
+
+#     def has_object_permission(self, request, view, obj):
+#         # Check if the object is an Institution and if the user is either the owner or an admin
+#         if isinstance(obj, Institution):
+#             return obj.owner == request.user or Admin.objects.filter(user=request.user, institution=obj).exists()
+#         return False
+    
 
 class IsOwnerOrAdmin(permissions.BasePermission):
     """
-    Custom permission to allow Owners or Admins for object-level permissions.
+    Custom permission to allow access to Owners (Managers) or Admins.
     """
 
-    def has_object_permission(self, request, view, obj):
-        return request.user.user_role == 'owner' or (request.user.user_role == 'admin' and request.user in obj.admins.all())
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (hasattr(request.user, 'manager') or hasattr(request.user, 'admin'))
+
 
 class IsTeacherOrReadOnly(permissions.BasePermission):
     """
@@ -57,6 +81,8 @@ class IsTeacherOrReadOnly(permissions.BasePermission):
     """
 
     def has_object_permission(self, request, view, obj):
+        # Allow read-only access for any request
         if request.method in permissions.SAFE_METHODS:
             return True
-        return obj.teacher.user == request.user
+        # Check if the user is a teacher and if they are the teacher of the course
+        return hasattr(request.user, 'teacher') and obj.teacher == request.user.teacher

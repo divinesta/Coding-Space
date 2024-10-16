@@ -9,6 +9,8 @@ from .validators import validate_image
 from shortuuid.django_fields import ShortUUIDField
 # Create your models here.
 
+
+
 class Institution(models.Model):
     SUBSCRIPTION_STATUS = [
         ('trial', 'Trial'),
@@ -17,8 +19,7 @@ class Institution(models.Model):
         ('failed', 'Failed')
     ]
     
-    name = models.CharField(max_length=255, unique=True)
-    code = models.CharField(max_length=10, unique=True)
+    name = models.CharField(max_length=255, unique=True, null=True, blank=True)
     logo = models.ImageField(upload_to='institution_logos/', null=True, blank=True, validators=[validate_image])
 
     date_registered = models.DateTimeField(auto_now_add=True)  # Auto-timestamp when created
@@ -37,12 +38,14 @@ class User(AbstractUser):
         ('admin', 'Admin'),
         ('teacher', 'Teacher'),
         ('student', 'Student'),
+        ('none', 'None')
     ]
     
-    username = models.CharField(max_length=100, unique=True)
+    username = models.CharField(max_length=100, unique=True, null=True, blank=True)
     email = models.EmailField(unique=True)
-    user_role = models.CharField(max_length=100, choices=USER_ROLES)
-    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='users')
+    user_role = models.CharField(max_length=100, choices=USER_ROLES, null=True, blank=True)
+
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='users', null=True, blank=True)
     otp = models.CharField(max_length=100, null=True, blank=True)
     refresh_token = models.CharField(max_length=100, null=True, blank=True)
 
@@ -53,16 +56,21 @@ class User(AbstractUser):
         return self.username
     
     def save(self, *args, **kwargs):
+        # This method runs before the model instance is saved
+        # It ensures that the username is set if it's not already provided
         if not self.username:
+            # If username is not set, use the part of the email before '@'
             self.username = self.email.split('@')[0]
+        # Call the parent class's save method to actually save the instance
         super().save(*args, **kwargs)
-        
+
+
 class Manager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     institution = models.OneToOneField(Institution, on_delete=models.CASCADE)
     email = models.EmailField(unique=True, null=True, blank=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-
+    date = models.DateTimeField(auto_now_add=True)
     def __str__(self):
         return f"Owner: {self.user.username}"
 
@@ -80,7 +88,7 @@ class Admin(models.Model):
 class Teacher(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     image = models.ImageField(upload_to='teacher_folder', default='default_teacher_user.jpg', null=True, blank=True)
-    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='teachers')
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='teachers', null=True, blank=True)
     bio = models.TextField(blank=True, null=True)
     date = models.DateTimeField(auto_now_add=True)
 
@@ -97,7 +105,7 @@ class Teacher(models.Model):
 
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='students')
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='students', null=True, blank=True)
     image = models.ImageField(upload_to='student_folder', default='default_student_user.jpg', null=True, blank=True)
     teacher = models.ManyToManyField(Teacher, related_name='students', blank=True)
     identification_number = models.CharField(max_length=100, unique=True, null=True, blank=True)
@@ -293,6 +301,13 @@ class Submission(models.Model):
     def __str__(self):
         return f"{self.student.user.username}'s submission for {self.get_submission_type_display()}"
 
+class Feedback(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='feedbacks')
+    feedback = models.TextField()
+    feedback_date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s feedback"
 
 
 class IssueReport(models.Model):

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Admin Account Created</title>
+   </head>
+   <body>
+      <h1>Welcome to the Institution Management System</h1>
+
+      <p>Dear {{ username }},</p>
+
+      <p>An admin account has been created for you in our Institution Management System.</p>
+
+      <p>Your login credentials are:</p>
+      <ul>
+         <li><strong>Username:</strong> {{ email }}</li>
+         <li><strong>Temporary Password:</strong> {{ password }}</li>
+      </ul>
+
+      <p><strong>For security reasons, please log in and change your password immediately.</strong></p>
+
+      <p>If you did not request this account, please contact us immediately.</p>
+
+      <p>
+         Best regards,<br />
+         Institution Management Team
+      </p>
+   </body>
+</html>

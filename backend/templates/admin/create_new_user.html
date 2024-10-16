@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>User Account Created</title>
+   </head>
+   <body>
+      <h1>Welcome to the Institution Management System</h1>
+
+      <p>Dear {{ username }},</p>
+
+      <p>Your account has been successfully created in our Institution Management System.</p>
+
+      <p>Your login credentials are:</p>
+      <ul>
+         <li><strong>Email:</strong> {{ email }}</li>
+         <li><strong>Temporary Password:</strong> {{ password }}</li>
+      </ul>
+
+      <p><strong>For security reasons, please log in and change your password immediately.</strong></p>
+
+      <p>
+         Best regards,<br />
+         Institution Management Team
+      </p>
+   </body>
+</html>

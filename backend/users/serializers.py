@@ -26,14 +26,27 @@ class UserSerializer(serializers.ModelSerializer):
         model = user_models.User
         fields = ['id', 'email', 'username', 'user_role','institution']
         read_only_fields = ['id', 'user_role']
-
-
+        
 class AdminSerializer(serializers.ModelSerializer):
     user = UserSerializer()
 
     class Meta:
         model = user_models.Admin
-        fields = '__all__'
+        fields = ['user']
+
+
+class AdminCreationSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(write_only=True)
+
+    class Meta:
+        model = user_models.Admin
+        fields = ['email']
+
+    def create(self, validated_data):
+        email = validated_data.pop('email')
+        user = user_models.User.objects.create_user(
+            username=email.split('@')[0], email=email, user_role='admin')
+        return user_models.Admin.objects.create(user=user, **validated_data)
 
 class AssessmentSerializer(serializers.ModelSerializer):
     due_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
@@ -185,6 +198,33 @@ class ManagerSerializer(serializers.ModelSerializer):
     class Meta:
         model = user_models.Manager
         fields = '__all__'
+
+
+class InstitutionManagerSerializer(serializers.Serializer):
+    # Institution fields
+    name = serializers.CharField(max_length=255)
+    logo = serializers.ImageField(required=False, allow_null=True)
+
+    # Manager fields
+    manager_name = serializers.CharField(max_length=100)
+    contact_email = serializers.EmailField()
+    contact_phone = serializers.CharField(max_length=20)
+
+    def validate_contact_email(self, value):
+        if user_models.User.objects.filter(email=value).exists():
+            raise serializers.ValidationError(
+                "A user with this email already exists.")
+        return value
+
+    def validate(self, data):
+        if user_models.Institution.objects.filter(name=data['name']).exists():
+            raise serializers.ValidationError(
+                "An institution with this name already exists.")
+        if user_models.Institution.objects.filter(code=data['code']).exists():
+            raise serializers.ValidationError(
+                "An institution with this code already exists.")
+        return data
+
 
 class FeedbackSerializer(serializers.ModelSerializer):
     class Meta:

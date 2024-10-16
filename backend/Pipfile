@@ -38,6 +38,7 @@ botocore = "*"
 idna = "*"
 openai = "*"
 redis = "*"
+pandas = "*"
 
 [dev-packages]
 django-debug-toolbar = "*"

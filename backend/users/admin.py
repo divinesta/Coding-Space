@@ -6,20 +6,23 @@ from . import models as user_models
 
 @admin.register(user_models.Institution)
 class InstitutionAdmin(admin.ModelAdmin):
-    list_display = ['name', 'code', 'created_at', 'updated_at']
+    list_display = ['name', 'date_registered', 'subscription_status']
 
 @admin.register(user_models.User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ['id', 'username', 'email', 'institution', 'user_type', 'otp']
+    list_display = ['id', 'username', 'email', 'institution', 'user_role', 'otp']
 
-
-@admin.register(user_models.Profile)
-class ProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'full_name', 'date']
+@admin.register(user_models.Manager)
+class ManagerAdmin(admin.ModelAdmin):
+    list_display = ['user', 'date']
+    
+@admin.register(user_models.Admin)
+class AdminAdmin(admin.ModelAdmin):
+    list_display = ['user', 'institution', 'date']
 
 @admin.register(user_models.Teacher)
 class TeacherAdmin(admin.ModelAdmin):
-    list_display = ['user', 'date']
+    list_display = ['user', 'institution', 'date']
 
 @admin.register(user_models.Student)
 class StudentAdmin(admin.ModelAdmin):
@@ -27,7 +30,7 @@ class StudentAdmin(admin.ModelAdmin):
 
 @admin.register(user_models.Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ["institution", "teacher", "title", "course_id", "enrollment_code", "date"]
+    list_display = ["institution", "teacher", "title", "course_id", "enrollment_code", "created_at"]
 
 @admin.register(user_models.CourseEnrollment)
 class CourseEnrollment(admin.ModelAdmin):

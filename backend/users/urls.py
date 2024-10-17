@@ -2,7 +2,7 @@ from .views.institution_views import InstitutionManagerCreateView, CreateAdminVi
 from .views.admin_views import CreateUserView, TeacherList, TeacherDetail, StudentList, StudentDetail, BulkAddUsersView
 from .views.teacher_views import TeacherProfileAPIView, TeacherCourseListAPIView, TeacherCourseDetailAPIView, TeacherStudentListAPIView, TeacherAssessmentListAPIView, TeacherQuizListAPIView, TeacherScoresAPIView, TeacherCourseCreateAPIView, TeacherAssessmentCreateAPIView, TeacherQuizCreateAPIView
 from .views.student_views import StudentAssignmentAPIView, StudentQuizAPIView, StudentScoresAPIView, StudentCourseDetailAPIView, StudentCourseListAPIView, StudentPlaygroundAPIView, StudentProfileAPIView, EnrollStudentsAPIView
-from . import views as user_views
+from .views.submission_views import ManualGradeAPIView, AIGradeAPIView
 from django.urls import path
 
 urlpatterns = [
@@ -45,7 +45,7 @@ urlpatterns = [
     path('teacher/courses/<course_id>/scores/', TeacherScoresAPIView.as_view(), name='teacher-course-scores'),
     
     
-    # # Submission
-    # path('submissions/<submission_id>/grade/', ManualGradeAPIView.as_view(), name='manual-grade'),
-    # path('submissions/<submission_id>/ai-grade/', AIGradeAPIView.as_view(), name='ai-grade'),
+    # Submission
+    path('submissions/<submission_id>/grade/', ManualGradeAPIView.as_view(), name='manual-grade'),
+    path('submissions/<teacher_id>/<submission_id>/ai-grade/', AIGradeAPIView.as_view(), name='ai-grade'),
 ]

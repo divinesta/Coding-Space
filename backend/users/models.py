@@ -66,7 +66,7 @@ class User(AbstractUser):
 
 
 class Manager(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='manager_profile')
     institution = models.OneToOneField(Institution, on_delete=models.CASCADE)
     email = models.EmailField(unique=True, null=True, blank=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
@@ -76,7 +76,7 @@ class Manager(models.Model):
 
 
 class Admin(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_profile')
     institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='admins')
     image = models.ImageField(upload_to='admin_folder', default='default_admin_user.jpg', null=True, blank=True)
     date = models.DateTimeField(auto_now_add=True)
@@ -86,7 +86,7 @@ class Admin(models.Model):
 
 
 class Teacher(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacher_profile')
     image = models.ImageField(upload_to='teacher_folder', default='default_teacher_user.jpg', null=True, blank=True)
     institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='teachers', null=True, blank=True)
     bio = models.TextField(blank=True, null=True)
@@ -104,7 +104,7 @@ class Teacher(models.Model):
 
 
 class Student(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='students', null=True, blank=True)
     image = models.ImageField(upload_to='student_folder', default='default_student_user.jpg', null=True, blank=True)
     teacher = models.ManyToManyField(Teacher, related_name='students', blank=True)

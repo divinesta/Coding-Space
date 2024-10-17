@@ -11,6 +11,24 @@ class IsOwner(permissions.BasePermission):
         if isinstance(obj, Institution):
             return obj.owner == request.user
         return False
+    
+
+class IsAdminUser(permissions.BasePermission):
+    """
+    Allows access only to admin users.
+    """
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.user_role == 'admin')
+
+
+class IsManagerUser(permissions.BasePermission):
+    """
+    Allows access only to manager users.
+    """
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.user_role == 'manager')
 
 class IsAdmin(permissions.BasePermission):
     """
@@ -18,8 +36,7 @@ class IsAdmin(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        # Check if the user has an associated admin profile
-        return hasattr(request.user, 'admin')
+        return request.user.is_authenticated and request.user.user_role == 'admin'
 
     def has_object_permission(self, request, view, obj):
         # Check if the object is an Institution and if the user is an admin of that institution
@@ -33,8 +50,8 @@ class IsTeacher(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        # Check if the user has an associated teacher profile
-        return hasattr(request.user, 'teacher')
+        return request.user.is_authenticated and request.user.user_role =='teacher'
+
 
 class IsStudent(permissions.BasePermission):
     """
@@ -42,8 +59,7 @@ class IsStudent(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        # Check if the user has an associated student profile
-        return hasattr(request.user, 'student')
+        return request.user.is_authenticated and request.user.user_role == 'student'
 
 class IsAdminOrOwner(permissions.BasePermission):
     """

@@ -22,7 +22,7 @@ from io import BytesIO
 class CreateUserView(generics.CreateAPIView):
     # This view is for adding a single user to the system
     serializer_class = UserSerializer
-    # TODO: correct this permission class later
+    # TODO: correct this permission class later "[IsAuthenticated, IsAdminUser]"
     permission_classes = [AllowAny]
 
     def generate_password(self):
@@ -36,18 +36,23 @@ class CreateUserView(generics.CreateAPIView):
         email = request.data['email']
         institution_id = request.data['institution_id']
 
-        # Check if all required fields are provided
+        # Validate required fields
         if not user_role or not email or not institution_id:
             return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Ensure user_role is valid
+        if user_role not in dict(User.ROLE_CHOICES):
+            return Response({'error': 'Invalid user role'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Verify if the institution exists
-        try:
-            institution = Institution.objects.get(id=institution_id)
-        except Institution.DoesNotExist:
-            return Response({'error': 'Invalid institution'}, status=status.HTTP_400_BAD_REQUEST)
+        institution = get_object_or_404(Institution, id=institution_id)
+
+        # Check if the user already exists
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Generate a random password
-        password = self.generate_password()
+        password = User.objects.make_random_password(length=12)
 
         # Validate the generated password
         try:
@@ -66,11 +71,11 @@ class CreateUserView(generics.CreateAPIView):
 
         # Create a Teacher or Student object based on the user_role
         if user_role == 'teacher':
-            Teacher.objects.create(user=user, institution=institution)
-            serializer = TeacherSerializer(user.teacher)
+            profile = Teacher.objects.create(user=user, institution=institution)
+            serializer = TeacherSerializer(profile)
         elif user_role == 'student':
-            Student.objects.create(user=user, institution=institution)
-            serializer = StudentSerializer(user.student)
+            profile = Student.objects.create(user=user, institution=institution)
+            serializer = StudentSerializer(profile)
         else:
             return Response({'error': 'Invalid user role'}, status=status.HTTP_400_BAD_REQUEST)
 

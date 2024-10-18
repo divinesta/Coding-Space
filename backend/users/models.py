@@ -41,7 +41,7 @@ class User(AbstractUser):
         ('none', 'None')
     ]
     
-    username = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    username = models.CharField(max_length=100, null=True, blank=True)
     email = models.EmailField(unique=True)
     user_role = models.CharField(max_length=100, choices=USER_ROLES, null=True, blank=True)
 
@@ -49,8 +49,8 @@ class User(AbstractUser):
     otp = models.CharField(max_length=100, null=True, blank=True)
     refresh_token = models.CharField(max_length=100, null=True, blank=True)
 
-    USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = ['email']
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
 
     def __str__(self):
         return self.username

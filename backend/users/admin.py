@@ -18,7 +18,7 @@ class ManagerAdmin(admin.ModelAdmin):
     
 @admin.register(user_models.Admin)
 class AdminAdmin(admin.ModelAdmin):
-    list_display = ['user', 'institution', 'date']
+    list_display = ['id', 'user', 'institution', 'date']
 
 @admin.register(user_models.Teacher)
 class TeacherAdmin(admin.ModelAdmin):

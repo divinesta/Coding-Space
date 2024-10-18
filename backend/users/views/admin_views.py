@@ -1,4 +1,5 @@
 from django.contrib.auth.password_validation import validate_password
+from django.utils.crypto import get_random_string
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives, send_mail
@@ -25,15 +26,12 @@ class CreateUserView(generics.CreateAPIView):
     # TODO: correct this permission class later "[IsAuthenticated, IsAdminUser]"
     permission_classes = [AllowAny]
 
-    def generate_password(self):
-        # Generate a random password of 12 characters
-        characters = string.ascii_letters + string.digits + string.punctuation
-        return ''.join(random.choice(characters) for i in range(12))
 
     def create(self, request, *args, **kwargs):
         # Handle POST request to create a new user
         user_role = request.data['user_role']
         email = request.data['email']
+        admin_id = request.data['admin_id']
         institution_id = request.data['institution_id']
 
         # Validate required fields
@@ -41,7 +39,7 @@ class CreateUserView(generics.CreateAPIView):
             return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Ensure user_role is valid
-        if user_role not in dict(User.ROLE_CHOICES):
+        if user_role not in dict(User.USER_ROLES):
             return Response({'error': 'Invalid user role'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Verify if the institution exists
@@ -52,7 +50,7 @@ class CreateUserView(generics.CreateAPIView):
             return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Generate a random password
-        password = User.objects.make_random_password(length=12)
+        password = get_random_string(length=8)
 
         # Validate the generated password
         try:
@@ -80,7 +78,7 @@ class CreateUserView(generics.CreateAPIView):
             return Response({'error': 'Invalid user role'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get admin email
-        admin = get_object_or_404(Admin, institution=institution)
+        admin = get_object_or_404(Admin, id=admin_id,  institution=institution)
         admin_email = admin.user.email
 
         # Send an email with the login credentials
@@ -237,7 +235,7 @@ class TeacherDetail(generics.RetrieveUpdateDestroyAPIView):
     def get_object(self):
         institution_id = self.kwargs['institution_id']
         institution = Institution.objects.get(id=institution_id)
-        teacher_id = self.kwargs['id']
+        teacher_id = self.kwargs['teacher_id']
         return get_object_or_404(Teacher, id=teacher_id, institution=institution)
     
 class StudentList(generics.ListAPIView):

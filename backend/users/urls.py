@@ -10,14 +10,14 @@ urlpatterns = [
     path('institutions/create/', InstitutionManagerCreateView.as_view()),
     
     #Institution Manager
-    path('manager/create-admin/', CreateAdminView.as_view(), name='create-admin'),
-    path('manager/admins-list/', AdminList.as_view(), name='admin-list'),
-    path('manager/admin-detail/<admin_id>/', AdminDetail.as_view()),
+    path('manager/create-admin/', CreateAdminView.as_view(), name='create-admin'), #checked ✅
+    path('manager/<institution_id>/admins-list/', AdminList.as_view(), name='admin-list'), #checked ✅
+    path('manager/<institution_id>/admin-detail/<admin_id>/', AdminDetail.as_view()), #checked ✅
     
     #Institution Admin
-    path('admin/create-user/', CreateUserView.as_view()),
-    path('admin/<institution_id>/teachers-list/', TeacherList.as_view()),
-    path('admin/<institution_id>/teacher-detail/<teacher_id>/', TeacherDetail.as_view()),
+    path('admin/create-user/', CreateUserView.as_view()),  # checked ✅
+    path('admin/<institution_id>/teachers-list/', TeacherList.as_view()), #checked ✅
+    path('admin/<institution_id>/teacher-detail/<teacher_id>/', TeacherDetail.as_view()), #checked ✅
     path('admin/<institution_id>/students-list/', StudentList.as_view()), #checked ✅
     path('admin/<institution_id>/student-detail/<student_id>/', StudentDetail.as_view()), #checked ✅
     path('admin/bulk-file-upload/', BulkAddUsersView.as_view()),
@@ -34,7 +34,7 @@ urlpatterns = [
 
     # Teacher
     path('teacher/profile/<user_id>/', TeacherProfileAPIView.as_view()),
-    path('teacher/create-course/', TeacherCourseCreateAPIView.as_view()),
+    path('teacher/create-course/', TeacherCourseCreateAPIView.as_view()), 
     path('teacher/<teacher_id>/course/', TeacherCourseListAPIView.as_view()),
     path('teacher/<teacher_id>/course-detail/<course_id>/', TeacherCourseDetailAPIView.as_view()),
     path('teacher/<teacher_id>/enrolled-students/<course_id>/', TeacherStudentListAPIView.as_view()),

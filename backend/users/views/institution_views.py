@@ -1,5 +1,8 @@
 from django.shortcuts import get_object_or_404
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
+from django.utils.crypto import get_random_string
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 
@@ -7,7 +10,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from ..serializers import InstitutionSerializer, InstitutionManagerSerializer, AdminCreationSerializer, AdminSerializer
+from ..serializers import InstitutionSerializer, InstitutionManagerSerializer, UserSerializer, AdminSerializer
 from ..permissions import IsOwnerOrAdmin
 from ..models import Institution, Manager, User, Admin
 
@@ -71,28 +74,62 @@ class InstitutionDetailView(generics.RetrieveUpdateDestroyAPIView):
 #TODO: Add link to this view 👇 for the login page in the email
 
 class CreateAdminView(generics.CreateAPIView):
-    serializer_class = AdminCreationSerializer
+    serializer_class = UserSerializer
     # TODO: update permissions to IsOwnerOrAdmin
     permission_classes = [AllowAny]
 
-    def perform_create(self, serializer):
-        institution = self.request.user.institution
-        admin = serializer.save(institution=institution)
+    def create(self, request, *args, **kwargs):
+        # Handle POST request to create a new user
+        email = request.data['email']
+        institution_id = request.data['institution_id']
+        user_role = "admin"
+        
+        # Validate required fields
+        if  not email or not institution_id:
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify if the institution exists
+        institution = get_object_or_404(Institution, id=institution_id)
+        
+        # Check if the user already exists
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Generate a secure random password
-        password = User.objects.make_random_password(length=12)
-        admin.user.set_password(password)
-        admin.user.save()
-
+        password = get_random_string(length=8)
+        
+        # Validate the generated password
+        try:
+            validate_password(password)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
         # Get manager email
         manager = get_object_or_404(Manager, institution=institution)
         manager_email = manager.user.email
+        
+        # Create a new user
+        user = User.objects.create_user(
+            username=email.split('@')[0],
+            email=email,
+            password=password,
+            user_role=user_role,
+            institution=institution
+        )
+        
+        # Create a Admin object based on the user_role
+        if user_role == 'admin':
+            profile = Admin.objects.create(user=user, institution=institution)
+            serializer = AdminSerializer(profile)
+        else:
+            return Response({'error': 'Invalid user role'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Send email with login details
         context = {
-            "username": admin.user.username,
+            "username": user.username,
             "password": password,
-            "email": admin.user.email,
+            "email": email
         }
         subject = "Your Admin Account for Institution Management System"
         text_body = render_to_string('manager/create_admin.txt', context)
@@ -100,32 +137,25 @@ class CreateAdminView(generics.CreateAPIView):
         message = EmailMultiAlternatives(
             subject=subject,
             from_email=manager_email,  # Use manager's email as the sender
-            to=[admin.user.email],
+            to=[user.email],
             body=text_body,
         )
         message.attach_alternative(html_body, "text/html")
         message.send()
 
-        return admin
+        # Return the serialized user data
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        admin = self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(
-            {"message": f"Admin account created successfully for {admin.user.email}. An email with login details has been sent."},
-            status=status.HTTP_201_CREATED,
-            headers=headers
-        )
-        
+
+
 class AdminList(generics.ListAPIView):
     serializer_class = AdminSerializer
     # TODO: update permissions to IsOwnerOrAdmin
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        institution = self.request.user.institution
+        institution_id = self.kwargs['institution_id']
+        institution = get_object_or_404(Institution, id=institution_id)
         return Admin.objects.filter(institution=institution)
     
     def list(self, request, *args, **kwargs):
@@ -142,6 +172,7 @@ class AdminDetail(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [AllowAny]
 
     def get_object(self):
-        institution = self.request.user.institution
-        admin_id = self.kwargs['id']
+        institution_id = self.kwargs['institution_id']
+        admin_id = self.kwargs['admin_id']
+        institution = get_object_or_404(Institution, id=institution_id)
         return get_object_or_404(Admin, id=admin_id, institution=institution)

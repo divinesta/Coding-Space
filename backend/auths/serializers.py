@@ -41,11 +41,13 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     manager_email = serializers.EmailField(write_only=True)
+    manager_contact = serializers.CharField(write_only=True)
     manager_password = serializers.CharField(write_only=True)
+    
 
     class Meta:
         model = Institution
-        fields = ['name', 'manager_email', 'manager_password', 'logo']  # Include 'logo' if necessary
+        fields = ['name', 'manager_email', 'manager_contact', 'manager_password']
 
     def create(self, validated_data):
         manager_email = validated_data.pop('manager_email')

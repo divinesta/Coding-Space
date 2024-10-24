@@ -119,7 +119,6 @@ class BulkAddUsersView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         # Handle POST request to create multiple users
         file = request.FILES.get('file')
-        user_role = request.data['user_role']
         institution_id = request.data['institution_id']
 
         # Check if all required fields are provided
@@ -138,9 +137,11 @@ class BulkAddUsersView(generics.CreateAPIView):
         except Exception as e:
             return Response({'error': f'Error reading file: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if the Excel file has 'email'columns
-        if 'email' not in df.columns:
-            return Response({'error': 'Excel file must contain "email" column'}, status=status.HTTP_400_BAD_REQUEST)
+        # Check if the Excel file has 'email' and 'user-role' columns
+        required_columns = ['email', 'user-role']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return Response({'error': f'Excel file must contain {", ".join(missing_columns)} column(s)'}, status=status.HTTP_400_BAD_REQUEST)
 
         created_users = []
         errors = []
@@ -152,6 +153,7 @@ class BulkAddUsersView(generics.CreateAPIView):
         # Iterate through each row in the Excel file
         for _, row in df.iterrows():
             email = row['email']
+            user_role = row['user-role'].lower()
             # Generate a random password of 12 characters
             password = ''.join(random.choices(
                 string.ascii_letters + string.digits, k=12))
@@ -216,8 +218,8 @@ class TeacherStudentAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         institution_id = self.kwargs['institution_id']
-        # user_type = self.kwargs['user_type']
         institution = Institution.objects.get(id=institution_id)
+        return User.objects.filter(institution=institution, user_role__in=['teacher', 'student'])
         
         # if user_type == 'teacher':
         #     return User.objects.filter(institution=institution, user_role='teacher')

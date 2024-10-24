@@ -209,45 +209,23 @@ class BulkAddUsersView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED if created_users else status.HTTP_400_BAD_REQUEST)
 
 
-class TeacherList(generics.ListAPIView):
-    serializer_class = TeacherSerializer
+class TeacherStudentAPIView(generics.ListAPIView):
+    serializer_class = UserSerializer
     # TODO: update permissions to IsOwnerOrAdmin
     permission_classes = [AllowAny]
 
     def get_queryset(self):
         institution_id = self.kwargs['institution_id']
+        # user_type = self.kwargs['user_type']
         institution = Institution.objects.get(id=institution_id)
-        return Teacher.objects.filter(institution=institution)
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({
-            'count': queryset.count(),
-            'results': serializer.data
-        })
         
-class TeacherDetail(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = TeacherSerializer
-    # TODO: update permissions to IsOwnerOrAdmin
-    permission_classes = [AllowAny]
+        # if user_type == 'teacher':
+        #     return User.objects.filter(institution=institution, user_role='teacher')
+        # elif user_type == 'student':
+        #     return User.objects.filter(institution=institution, user_role='student')
+        # else:
+        return User.objects.filter(institution=institution)
 
-    def get_object(self):
-        institution_id = self.kwargs['institution_id']
-        institution = Institution.objects.get(id=institution_id)
-        teacher_id = self.kwargs['teacher_id']
-        return get_object_or_404(Teacher, id=teacher_id, institution=institution)
-    
-class StudentList(generics.ListAPIView):
-    serializer_class = StudentSerializer
-    # TODO: update permissions to IsOwnerOrAdmin
-    permission_classes = [AllowAny]
-
-    def get_queryset(self):
-        institution_id = self.kwargs['institution_id']
-        institution = Institution.objects.get(id=institution_id)
-        return Student.objects.filter(institution=institution)
-    
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
@@ -255,19 +233,29 @@ class StudentList(generics.ListAPIView):
             'count': queryset.count(),
             'results': serializer.data
         })
-
-
-class StudentDetail(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = StudentSerializer
+class TeacherStudentDetail(generics.RetrieveUpdateDestroyAPIView):
     # TODO: update permissions to IsOwnerOrAdmin
     permission_classes = [AllowAny]
 
+    def get_serializer_class(self):
+        user_type = self.kwargs['user_type']
+        if user_type == 'teacher':
+            return TeacherSerializer
+        elif user_type == 'student':
+            return StudentSerializer
+        return UserSerializer
+
     def get_object(self):
         institution_id = self.kwargs['institution_id']
-        student_id = self.kwargs['student_id']
+        user_id = self.kwargs['teacher_id'] or self.kwargs['student_id']
+        user_type = self.kwargs['user_type']
         institution = Institution.objects.get(id=institution_id)
-        return get_object_or_404(Student, id=student_id, institution=institution)
-
+        
+        if user_type == 'teacher':
+            return get_object_or_404(Teacher, id=user_id, institution=institution)
+        elif user_type == 'student':
+            return get_object_or_404(Student, id=user_id, institution=institution)
+        return get_object_or_404(User, id=user_id, institution=institution)
 
 
 

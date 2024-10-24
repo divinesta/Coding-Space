@@ -1,63 +1,47 @@
 // AdminDashboard.tsx
-import React, { useState } from "react";
-import { HStack, Box, Flex, Heading, Tab, TabList, TabPanel, TabPanels, Tabs, VStack, Button, Input, useToast, Table, Thead, Tbody, Tr, Th, Td, Select, Container, Icon, useColorModeValue, Badge, Avatar, useColorMode
-} from "@chakra-ui/react";
-import { FaUserPlus, FaFileUpload, FaTrash } from "react-icons/fa";
-import { MoonIcon, SunIcon } from "@chakra-ui/icons";
-import { zodResolver } from "@hookform/resolvers/zod/dist/zod.js";
+import React from "react";
+import { Box, Heading, Tab, TabList, TabPanel, TabPanels, Tabs, VStack, Button, useToast, Container, Icon, useColorModeValue, FormLabel, Input, FormControl, Text } from "@chakra-ui/react";
+import { FaUserPlus, FaFileUpload } from "react-icons/fa";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
-import EditManagerProfile from "@/components/EditManagerProfile";
-
-interface User {
-   id: number;
-   name: string;
-   email: string;
-   role: "teacher" | "student";
-}
+import UserTable from "@/components/UserTable";
+import AddUserForm from "@/components/AddUserForm";
+import { User } from "@/interfaces/User";
+import useData from "@/hooks/useData";
+import useAdd from "@/hooks/useAdd";
+import { institution_id } from "@/utils/constants";
 
 const schema = z.object({
-   name: z.string().min(1, { message: "This field is required" }),
-   userType: z.string(),
    email: z.string().min(1, { message: "This field is required" }),
+   user_role: z.string(),
 });
 
 type FormData = z.infer<typeof schema>;
 
 const AdminDashboard: React.FC = () => {
-   const [users, setUsers] = useState<User[]>([]);
-   const [newUser, setNewUser] = useState({
-      name: "",
-      email: "",
-      role: "student" as "teacher" | "student",
-   });
-   const {
-      register,
-      handleSubmit,
-      reset,
-      formState: { errors },
-   } = useForm<FormData>({ resolver: zodResolver(schema) });
-   const onSubmit = (data: FormData) => {
-      console.log(data);
-      handleAddUser();
-      reset();
-   };
    const toast = useToast();
-   const { colorMode, toggleColorMode } = useColorMode();
+   const { data: users, error: fetchError, isLoading: isFetching, refetch } = useData<User[]>(`admin/${institution_id}/teacher-student-list/`);
+   const { addData: addUser, isLoading: isAdding } = useAdd<FormData, User>(`admin/${institution_id}/teacher-student-list/`);
+
    const bgColor = useColorModeValue("white", "gray.800");
    const headerColor = useColorModeValue("teal.600", "teal.300");
-   const headingColor = useColorModeValue("purple.600", "purple.300");
    const tabBgColor = useColorModeValue("teal.50", "gray.700");
    const hoverBgColor = useColorModeValue("teal.100", "gray.600");
 
-   const handleAddUser = () => {
-      if (newUser.name && newUser.email) {
-         setUsers([...users, { ...newUser, id: users.length + 1 }]);
-         setNewUser({ name: "", email: "", role: "student" });
-
+   const handleAddUser = async (data: FormData) => {
+      try {
+         await addUser(data);
+         refetch();
          toast({
-            title: `${newUser.role.charAt(0).toUpperCase() + newUser.role.slice(1)} added`,
+            title: `${data.user_role.charAt(0).toUpperCase() + data.user_role.slice(1)} added`,
             status: "success",
+            duration: 2000,
+            isClosable: true,
+         });
+      } catch (error) {
+         toast({
+            title: "Error adding user",
+            description: "An unexpected error occurred",
+            status: "error",
             duration: 2000,
             isClosable: true,
          });
@@ -75,33 +59,18 @@ const AdminDashboard: React.FC = () => {
       });
    };
 
-   const handleRemoveUser = (id: number) => {
-      setUsers(users.filter((user) => user.id !== id));
-      toast({
-         title: "User removed",
-         status: "info",
-         duration: 2000,
-         isClosable: true,
-      });
+   const handleRemoveUser = async (id: number) => {
+      // Implement user removal logic here
+      // After successful removal, call refetch() to update the user list
    };
+
+   if (fetchError) {
+      return <Text>Error loading users: {fetchError}</Text>;
+   }
 
    return (
       <Box bg={bgColor} minHeight="100vh" py={8}>
          <Container maxW="container.xl">
-            <HStack justifyContent="space-between" p={4}>
-               <Heading size={{ base: "md", md: "lg" }} color={headingColor}>
-                  Welcome backing
-               </Heading>
-               <HStack>
-                  <HStack>
-                     <EditManagerProfile />
-                     <Button onClick={toggleColorMode} variant="outline">
-                        {colorMode === "light" ? <MoonIcon /> : <SunIcon />}
-                     </Button>
-                  </HStack>
-               </HStack>
-            </HStack>
-
             <Heading mb={8} color={headerColor} fontSize="4xl" textAlign="center">
                Admin Dashboard
             </Heading>
@@ -116,82 +85,22 @@ const AdminDashboard: React.FC = () => {
                <TabPanels>
                   <TabPanel>
                      <VStack align="stretch" spacing={6}>
-                        <form action="" onSubmit={handleSubmit(onSubmit)}>
-                           <Flex gap={2}>
-                              <Flex width={"100%"} flexDirection={"column"}>
-                                 <Input placeholder="Name" {...register("name")} value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} mr={2} size="lg" />
-                                 {errors.name && <p style={{ fontSize: "14px", color: "red" }}>{errors.name.message}</p>}
-                              </Flex>
+                        <AddUserForm onSubmit={handleAddUser} isLoading={isAdding} />
 
-                              <Flex width={"100%"} flexDirection={"column"}>
-                                 <Input
-                                    {...register("email")}
-                                    type="email"
-                                    placeholder="Email"
-                                    value={newUser.email}
-                                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                                    mr={2}
-                                    size="lg"
-                                 />
-                                 {errors.email && <p style={{ fontSize: "14px", color: "red" }}>{errors.email.message}</p>}
-                              </Flex>
-
-                              <Select
-                                 value={newUser.role}
-                                 {...register("userType")}
-                                 onChange={(e) =>
-                                    setNewUser({
-                                       ...newUser,
-                                       role: e.target.value as "teacher" | "student",
-                                    })
-                                 }
-                                 mr={2}
-                                 size="lg"
-                              >
-                                 <option value="student">Student</option>
-                                 <option value="teacher">Teacher</option>
-                              </Select>
-                              <Button colorScheme="teal" size="lg" width={"100%"} type="submit">
-                                 Add User
+                        <Box border="1px" borderColor="gray.200" borderRadius="md" p={4}>
+                           <FormControl>
+                              <FormLabel htmlFor="file-upload">Upload User List</FormLabel>
+                              <Button as="label" htmlFor="file-upload" colorScheme="teal" variant="outline" leftIcon={<Icon as={FaFileUpload} />} cursor="pointer" mb={2}>
+                                 Choose File
                               </Button>
-                           </Flex>
-                        </form>
+                              <Input id="file-upload" type="file" onChange={handleFileUpload} accept=".csv,.xlsx,.xls" display="none" />
+                              <Text fontSize="sm" color="gray.500" mt={1}>
+                                 Supported formats: CSV, Excel (.xlsx, .xls)
+                              </Text>
+                           </FormControl>
+                        </Box>
 
-                        <Button as="label" htmlFor="file-upload" colorScheme="blue" size="lg" leftIcon={<Icon as={FaFileUpload} />}>
-                           Upload User List
-                           <input id="file-upload" type="file" style={{ display: "none" }} onChange={handleFileUpload} />
-                        </Button>
-                        <Table variant="simple">
-                           <Thead>
-                              <Tr>
-                                 <Th>User</Th>
-                                 <Th>Email</Th>
-                                 <Th>Role</Th>
-                                 <Th>Action</Th>
-                              </Tr>
-                           </Thead>
-                           <Tbody>
-                              {users.map((user) => (
-                                 <Tr key={user.id}>
-                                    <Td>
-                                       <Flex align="center">
-                                          <Avatar size="sm" name={user.name} mr={2} />
-                                          {user.name}
-                                       </Flex>
-                                    </Td>
-                                    <Td>{user.email}</Td>
-                                    <Td>
-                                       <Badge colorScheme={user.role === "teacher" ? "purple" : "green"}>{user.role}</Badge>
-                                    </Td>
-                                    <Td>
-                                       <Button colorScheme="red" size="sm" onClick={() => handleRemoveUser(user.id)} leftIcon={<Icon as={FaTrash} />}>
-                                          Remove
-                                       </Button>
-                                    </Td>
-                                 </Tr>
-                              ))}
-                           </Tbody>
-                        </Table>
+                        <UserTable users={users || []} onRemoveUser={handleRemoveUser} isLoading={isFetching} />
                      </VStack>
                   </TabPanel>
                </TabPanels>

@@ -1,5 +1,5 @@
 from .views.institution_views import InstitutionManagerCreateView, CreateAdminView, AdminList, AdminDetail, ManagerProfileView
-from .views.admin_views import CreateUserView, TeacherList, TeacherDetail, StudentList, StudentDetail, BulkAddUsersView
+from .views.admin_views import CreateUserView, TeacherStudentAPIView, TeacherStudentDetail, BulkAddUsersView
 from .views.teacher_views import TeacherProfileAPIView, TeacherCourseListAPIView, TeacherCourseDetailAPIView, TeacherStudentListAPIView, TeacherAssessmentListAPIView, TeacherQuizListAPIView, TeacherScoresAPIView, TeacherCourseCreateAPIView, TeacherAssessmentCreateAPIView, TeacherQuizCreateAPIView
 from .views.student_views import StudentAssignmentAPIView, StudentQuizAPIView, StudentScoresAPIView, StudentCourseDetailAPIView, StudentCourseListAPIView, StudentPlaygroundAPIView, StudentProfileAPIView, EnrollStudentsAPIView
 from .views.submission_views import ManualGradeAPIView, AIGradeAPIView
@@ -17,10 +17,8 @@ urlpatterns = [
     
     #Institution Admin
     path('admin/create-user/', CreateUserView.as_view()),  # checked ✅
-    path('admin/<institution_id>/teachers-list/', TeacherList.as_view()), #checked ✅
-    path('admin/<institution_id>/teacher-detail/<teacher_id>/', TeacherDetail.as_view()), #checked ✅
-    path('admin/<institution_id>/students-list/', StudentList.as_view()), #checked ✅
-    path('admin/<institution_id>/student-detail/<student_id>/', StudentDetail.as_view()), #checked ✅
+    path('admin/<institution_id>/teacher-student-list/', TeacherStudentAPIView.as_view()), #checked ✅
+    path('admin/<institution_id>/teacher-student-detail/', TeacherStudentDetail.as_view()), #checked ✅
     path('admin/bulk-file-upload/', BulkAddUsersView.as_view()),
     
     #Student

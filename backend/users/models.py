@@ -108,7 +108,6 @@ class Student(models.Model):
     image = models.ImageField(upload_to='student_folder', default='default_student_user.jpg', null=True, blank=True)
     teacher = models.ManyToManyField(Teacher, related_name='students', blank=True)
     identification_number = models.CharField(max_length=100, unique=True, null=True, blank=True)
-    courses = models.ManyToManyField("users.Course", related_name='students', blank=True)
     assessments = models.ManyToManyField("users.Assessment", related_name='students', blank=True)
     quizzes = models.ManyToManyField("users.Quiz", related_name='students', blank=True)
     playgrounds = models.ManyToManyField("users.PlayGround", related_name='students', blank=True)
@@ -118,7 +117,7 @@ class Student(models.Model):
         return f"Student: {self.user.username}"
 
     def courses(self):
-        return Course.objects.filter(students=self)
+        return Course.objects.filter(courseenrollment__student=self)
 
     def assessments(self):
         return Assessment.objects.filter(students=self)

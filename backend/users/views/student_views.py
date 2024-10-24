@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 
-from ..models import Student, CourseEnrollment, Course, Assessment, Quiz, PlayGround, Submission, Teacher
+from ..models import User, Student, CourseEnrollment, Course, Assessment, Quiz, PlayGround, Submission, Teacher, Institution
 from ..serializers import StudentSerializer, CourseEnrollmentSerializer, CourseSerializer, AssessmentSerializer, QuizSerializer, PlayGroundSerializer, SubmissionSerializer
 from ..tasks import grade_submission_task
 
@@ -16,7 +16,10 @@ class StudentProfileAPIView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         user_id = self.kwargs['user_id']
-        student = get_object_or_404(Student, user__id=user_id)
+        institution_id = self.kwargs['institution_id']
+        user = User.objects.get(id=user_id)
+        institution = get_object_or_404(Institution, id=institution_id)
+        student = get_object_or_404(Student, user=user, institution=institution)
         return student
         # user = user_models.User.objects.get(id=user_id)
 

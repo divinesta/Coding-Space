@@ -68,7 +68,6 @@ class User(AbstractUser):
 class Manager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='manager_profile')
     institution = models.OneToOneField(Institution, on_delete=models.CASCADE)
-    email = models.EmailField(unique=True, null=True, blank=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     date = models.DateTimeField(auto_now_add=True)
     def __str__(self):

@@ -32,7 +32,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
    // Initial loading state is false
    loading: false,
    // Function to update user state
-   setUser: (user: User | null) => set({ user }),
+   setUser: (user) => set(() => ({ user })),
    // Function to set tokens
    setTokens: (access: string, refresh: string) => {
       // Set access token in cookies
@@ -54,7 +54,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       set({ user: null, accessToken: null, refreshToken: null });
    },
    // Function to update loading state
-   setLoading: (loading: boolean) => set({ loading }),
+   setLoading: (loading) => set(() => ({ loading })),
    // Function to check if user is logged in
    isLoggedIn: () => {
       // Get current user and accessToken states

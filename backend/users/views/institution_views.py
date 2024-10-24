@@ -10,8 +10,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from ..serializers import InstitutionSerializer, InstitutionManagerSerializer, UserSerializer, AdminSerializer
-from ..permissions import IsOwnerOrAdmin
+from ..serializers import InstitutionSerializer, InstitutionManagerSerializer, UserSerializer, AdminSerializer, ManagerSerializer
 from ..models import Institution, Manager, User, Admin
 
 
@@ -21,42 +20,49 @@ from ..models import Institution, Manager, User, Admin
 class InstitutionManagerCreateView(generics.CreateAPIView):
     serializer_class = InstitutionManagerSerializer
     permission_classes = [AllowAny]
-    
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            # Create Institution
-            institution = Institution.objects.create(
-                name=serializer.validated_data['name'],
-                logo=serializer.validated_data.get('logo'),
-                subscription_status='trial'
+            institution = serializer.save()
+            headers = self.get_success_headers(serializer.data)
+            return Response(
+                {"message": "Institution and Manager created successfully",
+                    "data": serializer.data},
+                status=status.HTTP_201_CREATED,
+                headers=headers
             )
-
-            # Create User for Manager
-            user = User.objects.create_user(
-                username=serializer.validated_data['contact_email'].split('@')[0],
-                email=serializer.validated_data['contact_email'],
-                user_role='manager',
-                institution=institution
-            )
-
-            # Create Manager
-            Manager.objects.create(
-                user=user,
-                institution=institution,
-                email=serializer.validated_data['contact_email'],
-                phone_number=serializer.validated_data['contact_phone']
-            )
-
-            # TODO: Implement payment processing logic here
-            # For example:
-            # process_payment(serializer.validated_data['payment_info'])
-            # if payment_successful:
-            #     institution.subscription_status = 'paid'
-            #     institution.save()
-
-            return Response({"message": "Institution and Manager created successfully"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ManagerProfileView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ManagerSerializer
+    # TODO: Update to appropriate permission class
+    permission_classes = [AllowAny]  
+
+    def get_object(self):
+        institution_id = self.kwargs['institution_id']
+        institution = get_object_or_404(Institution, id=institution_id)
+        return get_object_or_404(Manager, institution=institution)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 
 
 class InstitutionDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -83,32 +89,31 @@ class CreateAdminView(generics.CreateAPIView):
         email = request.data['email']
         institution_id = request.data['institution_id']
         user_role = "admin"
-        
+
         # Validate required fields
-        if  not email or not institution_id:
+        if not email or not institution_id:
             return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # Verify if the institution exists
         institution = get_object_or_404(Institution, id=institution_id)
-        
+
         # Check if the user already exists
         if User.objects.filter(email=email).exists():
             return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # Generate a secure random password
         password = get_random_string(length=8)
-        
+
         # Validate the generated password
         try:
             validate_password(password)
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
-        
+
         # Get manager email
         manager = get_object_or_404(Manager, institution=institution)
         manager_email = manager.user.email
-        
+
         # Create a new user
         user = User.objects.create_user(
             username=email.split('@')[0],
@@ -117,13 +122,16 @@ class CreateAdminView(generics.CreateAPIView):
             user_role=user_role,
             institution=institution
         )
+        try:
+            # Create a Admin object based on the user_role
+            if user_role == 'admin':
+                profile = Admin.objects.create(user=user, institution=institution)
+                serializer = AdminSerializer(profile)
+            else:
+                return Response({'error': 'Invalid user role'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Create a Admin object based on the user_role
-        if user_role == 'admin':
-            profile = Admin.objects.create(user=user, institution=institution)
-            serializer = AdminSerializer(profile)
-        else:
-            return Response({'error': 'Invalid user role'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Send email with login details
         context = {
@@ -145,7 +153,6 @@ class CreateAdminView(generics.CreateAPIView):
 
         # Return the serialized user data
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 
 
 class AdminList(generics.ListAPIView):

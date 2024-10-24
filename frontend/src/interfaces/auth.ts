@@ -28,6 +28,7 @@ export interface IRegister {
    manager_email: string;
    manager_contact: string;
    manager_password: string;
+   manager_confirm_password: string;
 }
 
 export interface ILogin {

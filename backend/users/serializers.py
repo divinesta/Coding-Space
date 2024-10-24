@@ -1,4 +1,5 @@
 from django.apps import apps
+from django.utils.crypto import get_random_string
 from importlib import import_module
 
 from rest_framework import serializers
@@ -22,6 +23,7 @@ def get_serializer(app_label, serializer_name):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    institution = serializers.StringRelatedField(many=False)
     class Meta:
         model = user_models.User
         fields = ['id', 'email', 'username', 'user_role','institution']
@@ -29,24 +31,41 @@ class UserSerializer(serializers.ModelSerializer):
         
 class AdminSerializer(serializers.ModelSerializer):
     user = UserSerializer()
-
+    institution = serializers.StringRelatedField(many=False)
+    
     class Meta:
         model = user_models.Admin
-        fields = ['user']
+        fields = ['id', 'user', 'institution', 'image', 'date']
 
 
-class AdminCreationSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(write_only=True)
 
-    class Meta:
-        model = user_models.Admin
-        fields = ['email']
+# class AdminCreationSerializer(serializers.ModelSerializer):
+#     email = serializers.EmailField(write_only=True)
+#     institution_id = serializers.IntegerField(write_only=True)
+#     user_role = "admin"
 
-    def create(self, validated_data):
-        email = validated_data.pop('email')
-        user = user_models.User.objects.create_user(
-            username=email.split('@')[0], email=email, user_role='admin')
-        return user_models.Admin.objects.create(user=user, **validated_data)
+#     class Meta:
+#         model = user_models.User
+#         fields = ['id', 'email', 'institution_id', 'user_role']
+
+#     def create(self, validated_data):
+#         email = validated_data.pop('email')
+#         institution_id = validated_data.pop('institution_id')
+#         user_role = validated_data.pop('user_role')
+
+#         institution = user_models.Institution.objects.get(id=institution_id)
+        
+#         password = get_random_string(8)
+        
+#         user = user_models.User.objects.create_user(
+#             username=email.split('@')[0],
+#             email=email,
+#             password=password,
+#             user_role=user_role,
+#             institution=institution
+#         )
+#         admin = user_models.Admin.objects.create(user=user, institution=institution)
+#         return admin
 
 class AssessmentSerializer(serializers.ModelSerializer):
     due_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
@@ -118,7 +137,7 @@ class CourseSerializer(serializers.ModelSerializer):
             self.Meta.depth = 3
 
 class StudentSerializer(serializers.ModelSerializer):
-    user = UserSerializer()
+    user = UserSerializer(many=False)
     courses = CourseSerializer(many=True, read_only=True)
     assessments = AssessmentSerializer(many=True, read_only=True)
     quizzes = QuizSerializer(many=True, read_only=True)
@@ -186,6 +205,7 @@ class TeacherSerializer(serializers.ModelSerializer):
 
 
 class InstitutionSerializer(serializers.ModelSerializer):
+    institution = serializers.StringRelatedField(many=False)
 
     class Meta:
         model = user_models.Institution
@@ -198,6 +218,22 @@ class ManagerSerializer(serializers.ModelSerializer):
     class Meta:
         model = user_models.Manager
         fields = '__all__'
+        
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+        user = instance.user
+
+        # Update user fields
+        for attr, value in user_data.items():
+            setattr(user, attr, value)
+        user.save()
+
+        # Update manager fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        return instance
 
 
 class InstitutionManagerSerializer(serializers.Serializer):
@@ -220,11 +256,28 @@ class InstitutionManagerSerializer(serializers.Serializer):
         if user_models.Institution.objects.filter(name=data['name']).exists():
             raise serializers.ValidationError(
                 "An institution with this name already exists.")
-        if user_models.Institution.objects.filter(code=data['code']).exists():
-            raise serializers.ValidationError(
-                "An institution with this code already exists.")
         return data
 
+    def create(self, validated_data):
+        institution = user_models.Institution.objects.create(
+            name=validated_data['name'],
+            logo=validated_data.get('logo')
+        )
+
+        user = user_models.User.objects.create_user(
+            username=validated_data['contact_email'].split('@')[0],
+            email=validated_data['contact_email'],
+            password=get_random_string(12),
+            user_role='manager'
+        )
+
+        user_models.Manager.objects.create(
+            user=user,
+            institution=institution,
+            phone_number=validated_data['contact_phone']
+        )
+
+        return institution
 
 class FeedbackSerializer(serializers.ModelSerializer):
     class Meta:

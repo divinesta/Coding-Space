@@ -1,4 +1,4 @@
-from .views.institution_views import InstitutionManagerCreateView, CreateAdminView, AdminList, AdminDetail
+from .views.institution_views import InstitutionManagerCreateView, CreateAdminView, AdminList, AdminDetail, ManagerProfileView
 from .views.admin_views import CreateUserView, TeacherList, TeacherDetail, StudentList, StudentDetail, BulkAddUsersView
 from .views.teacher_views import TeacherProfileAPIView, TeacherCourseListAPIView, TeacherCourseDetailAPIView, TeacherStudentListAPIView, TeacherAssessmentListAPIView, TeacherQuizListAPIView, TeacherScoresAPIView, TeacherCourseCreateAPIView, TeacherAssessmentCreateAPIView, TeacherQuizCreateAPIView
 from .views.student_views import StudentAssignmentAPIView, StudentQuizAPIView, StudentScoresAPIView, StudentCourseDetailAPIView, StudentCourseListAPIView, StudentPlaygroundAPIView, StudentProfileAPIView, EnrollStudentsAPIView
@@ -7,9 +7,10 @@ from django.urls import path
 
 urlpatterns = [
     # Institution
-    path('institutions/create/', InstitutionManagerCreateView.as_view()),
+    path('institutions/create/', InstitutionManagerCreateView.as_view()), #checked ✅
     
     #Institution Manager
+    path('manager/<institution_id>/profile/', ManagerProfileView.as_view()),
     path('manager/create-admin/', CreateAdminView.as_view(), name='create-admin'), #checked ✅
     path('manager/<institution_id>/admins-list/', AdminList.as_view(), name='admin-list'), #checked ✅
     path('manager/<institution_id>/admin-detail/<admin_id>/', AdminDetail.as_view()), #checked ✅
@@ -23,7 +24,7 @@ urlpatterns = [
     path('admin/bulk-file-upload/', BulkAddUsersView.as_view()),
     
     #Student
-    path('students/profile/<user_id>/', StudentProfileAPIView.as_view()),
+    path('students/<institution_id>/profile/<user_id>/', StudentProfileAPIView.as_view()),
     path('students/enroll-course/', EnrollStudentsAPIView.as_view()),
     path('students/<student_id>/course-list/', StudentCourseListAPIView.as_view()),
     path('students/<student_id>/course-detail/<course_id>/', StudentCourseDetailAPIView.as_view()),

@@ -11,20 +11,43 @@ Institution = apps.get_model('users', 'Institution')
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
-    email = serializers.EmailField(read_only=True)
-    username = serializers.CharField(read_only=True)
-    user_role = serializers.CharField(read_only=True)
-    role_id = serializers.IntegerField(read_only=True)
+    email = serializers.EmailField(write_only=True)
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        if email and password:
+            user = User.objects.filter(email=email).first()
+
+            if user and user.check_password(password):
+                # Set username for parent class
+                attrs['username'] = user.username
+                data = super().validate(attrs)
+                data.update({
+                    'user': {
+                        'username': user.username,
+                        'email': user.email,
+                        'role': user.user_role,
+                    }
+                })
+                return data
+            else:
+                raise serializers.ValidationError(
+                    'Unable to log in with provided credentials.')
+        else:
+            raise serializers.ValidationError(
+                'Must include "email" and "password".')
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        # Add standard claims
         token['email'] = user.email
         token['username'] = user.username
         token['user_role'] = user.user_role
+        token['institution_id'] = user.institution.id
 
-        # Add role-specific claim
         if user.user_role == 'teacher' and hasattr(user, 'teacher_profile'):
             token['teacher_id'] = user.teacher_profile.id
         elif user.user_role == 'student' and hasattr(user, 'student_profile'):
@@ -34,7 +57,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         elif user.user_role == 'manager' and hasattr(user, 'manager_profile'):
             token['manager_id'] = user.manager_profile.id
         else:
-            token['role_id'] = None  # Or omit this field
+            token['role_id'] = None
 
         return token
 
@@ -42,16 +65,24 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 class RegisterSerializer(serializers.ModelSerializer):
     manager_email = serializers.EmailField(write_only=True)
     manager_contact = serializers.CharField(write_only=True)
-    manager_password = serializers.CharField(write_only=True)
+    manager_password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    manager_confirm_password = serializers.CharField(write_only=True)
     
 
     class Meta:
         model = Institution
-        fields = ['name', 'manager_email', 'manager_contact', 'manager_password']
+        fields = ['name', 'manager_email', 'manager_contact', 'manager_password', 'manager_confirm_password']
+
+    def validate(self, attrs):
+        if attrs['manager_password'] != attrs['manager_confirm_password']:
+            raise serializers.ValidationError({"manager_password": "Password fields didn't match."})
+        return attrs
 
     def create(self, validated_data):
         manager_email = validated_data.pop('manager_email')
+        manager_contact = validated_data.pop('manager_contact')
         manager_password = validated_data.pop('manager_password')
+        manager_confirm_password = validated_data.pop('manager_confirm_password')
 
         # Create institution
         institution = Institution.objects.create(**validated_data)
@@ -65,8 +96,11 @@ class RegisterSerializer(serializers.ModelSerializer):
             institution=institution
         )
 
+        manager_user.set_password(manager_password)
+        manager_user.save()
+
         # Create manager profile
-        Manager.objects.create(user=manager_user, institution=institution)
+        Manager.objects.create(user=manager_user, institution=institution, phone_number=manager_contact)
 
         return institution
 

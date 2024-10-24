@@ -5,13 +5,13 @@ from django.core.mail import EmailMultiAlternatives
 from django.contrib.auth import get_user_model
 # from django.contrib.auth.hashers import check_password
 
-from . import models as auth_models
+# from ..users.models import User
 from . import serializers as auth_serializers
 
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
+# from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 import random
@@ -57,15 +57,15 @@ class PasswordResetEmailVerifyAPIView(generics.RetrieveAPIView):
     def get_object(self):
         email = self.kwargs['email']
 
-        user = auth_models.User.objects.filter(email=email).first()
+        user = User.objects.filter(email=email).first()
 
         if user:
 
             uuidb64 = user.pk
-            refresh = RefreshToken.for_user(user)
-            refresh_token = str(refresh.access_token)
+            # refresh = RefreshToken.for_user(user)
+            # refresh_token = str(refresh.access_token)
 
-            user.refresh_token = refresh_token
+            # user.refresh_token = refresh_token
             user.otp = generate_random_otp()
             user.save()
 
@@ -74,7 +74,7 @@ class PasswordResetEmailVerifyAPIView(generics.RetrieveAPIView):
             query_params = urlencode({
                 "otp": user.otp,
                 "uuidb64": uuidb64,
-                "refresh_token": refresh_token,
+                # "refresh_token": refresh_token,
             })
 
             link = f'{base_url}?{query_params}'
@@ -109,8 +109,8 @@ class PasswordResetAPIView(generics.UpdateAPIView):
 
     def get_object(self):
         return User.objects.get(
-            id=self.request.data.get('uuidb64'),
-            otp=self.request.data.get('otp')
+            id=self.request.data['uuidb64'],
+            otp=self.request.data['otp']
         )
 
     def update(self, request, *args, **kwargs):
